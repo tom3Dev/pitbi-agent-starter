@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "pitbi": {
+      "type": "http",
+      "url": "https://pitbi.app/mcp"
+    }
+  }
+}
