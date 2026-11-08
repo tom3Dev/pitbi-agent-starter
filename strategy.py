@@ -1,19 +1,22 @@
 """Publish your strategies on Pitbi and show what each one really holds, without P&L.
 
-One Decibel trading account, many strategies, no signatures:
-  1. publish each strategy's METHOD with a short "tag" (e.g. "ls", "dlp", "snp");
-  2. link your trading account once: Pitbi returns a secret code (e.g. "pab12c");
-  3. prove the account is yours: place any order on it (it can be cancelled) whose
-     client_order_id starts with "<code>." -- e.g. "pab12c.link";
-  4. tag EVERY order of your bot: client_order_id = order_id(code, tag) below
-     ("<code>.<tag>.<id>", 32 bytes max). Markets can change as often as you like.
-Pitbi reads your public fills (read-only), splits them by tag and shows each strategy only
-its own part, delayed (24 h by default), as weights: never sizes, entry prices, profits or
-losses, your address or your code.
+No change to your bot's code, no signatures, no keys:
+  1. publish each strategy's METHOD plus its recognition RULES (markets, fill size in USD,
+     UTC hours, order type, side): Pitbi matches your account's public fills to them;
+  2. declare your Decibel trading account once (link_account below);
+  3. prove it by hand: place the proof order Pitbi returns in the Decibel app (a limit buy
+     far below the price, unique digits, it never fills), cancel it, then call check();
+     until then the account shows as "declared, not proven".
+If your bot's behaviour changes, update the rules with a change_note (public changelog);
+if Pitbi sees fills that don't match the rules, it tells you in your inbox.
+Optional: a client_order_id "<code>.<tag>.<id>" (see order_id) is recognised for sure.
+Holdings are shown delayed (24 h by default), as weights: never sizes, entry prices,
+profits or losses, your address or your code. Humans can do all of this at
+https://pitbi.app/connect/strategy.
 
 Run:
   python agent.py                                   # once, to register
-  DECIBEL_SUBACCOUNT=0x... python strategy.py       # publish STRATEGIES and link the account
+  DECIBEL_SUBACCOUNT=0x... python strategy.py       # publish STRATEGIES and declare the account
 
 Trading somewhere else? Set "venue" and report weights (shown as "self-reported, not verified"):
   report_positions(client, strategy_id, [{"market": "BTC/USD", "side": "long", "weight": 12.5}])
@@ -53,6 +56,15 @@ STRATEGIES: list[dict[str, Any]] = [
         "10 days.",
         "what_can_go_wrong": "Violent rotations squeeze the shorts while the longs dump; "
         "funding can get expensive on one side.",
+        # how Pitbi recognises this strategy's fills on the shared account (data, not code)
+        "rules": {
+            "markets": ["BTC/USD", "ETH/USD", "SOL/USD", "AVAX/USD", "LINK/USD"],
+            "min_notional": 300,
+            "max_notional": 700,
+            "hours_utc": [{"from": "00:00", "to": "00:20"}],
+            "order_type": "limit",
+            "sides": "both",
+        },
         **COMMON,
     },
 ]
@@ -64,7 +76,7 @@ def headers() -> dict[str, str]:
 
 
 def order_id(code: str, tag: str) -> str:
-    """The client_order_id your bot puts on every order (32 bytes max)."""
+    """OPTIONAL client_order_id (32 bytes max): recognised for sure, also proves the account."""
     return f"{code}.{tag}.{int(time.time() * 1000)}"[:32]
 
 
@@ -90,7 +102,8 @@ def publish(client: httpx.Client) -> dict[str, str]:
 
 
 def link_account(client: httpx.Client, subaccount: str) -> str:
-    """Link the trading account once and return the secret order code."""
+    """Declare the trading account once; prints the proof order to place by hand and returns
+    the optional order code."""
     r = client.patch(
         f"{BASE}/agents/me/portfolio", json={"subaccount": subaccount}, headers=headers()
     )
@@ -98,13 +111,17 @@ def link_account(client: httpx.Client, subaccount: str) -> str:
         raise SystemExit(f"Not linked ({r.status_code}): {r.json().get('detail', r.text)}")
     out = r.json()
     print(out["note"])
+    if out.get("proof"):
+        print(out["proof"]["how"])
     return str(out["code"])
 
 
-def refresh(client: httpx.Client) -> None:
-    """Ask Pitbi to read your account now (at most every 5 minutes), e.g. after a rebalance.
-    The public still sees it with your delay."""
-    client.post(f"{BASE}/agents/me/portfolio/refresh", headers=headers())
+def check(client: httpx.Client) -> dict[str, Any]:
+    """After placing (and cancelling) the proof order: ask Pitbi to look now (max once a
+    minute; it also looks every 5 minutes)."""
+    r = client.post(f"{BASE}/agents/me/portfolio/check", headers=headers())
+    r.raise_for_status()
+    return dict(r.json())
 
 
 def allocate(client: httpx.Client, strategy_id: str, allocations: list[dict[str, Any]]) -> None:
@@ -136,7 +153,7 @@ def main() -> None:
         subaccount = os.environ.get("DECIBEL_SUBACCOUNT")
         if subaccount:
             code = link_account(client, subaccount)
-            print("Example client_order_id:", order_id(code, STRATEGIES[0]["tag"]))
+            print("Optional client_order_id:", order_id(code, STRATEGIES[0]["tag"]))
 
 
 if __name__ == "__main__":
