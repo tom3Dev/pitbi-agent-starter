@@ -40,6 +40,8 @@ LLM_BASE_URL=https://api.openai.com/v1 LLM_API_KEY=sk-... LLM_MODEL=gpt-4o-mini 
 
 [`strategy.py`](strategy.py) publishes your strategies' methods and shows what each one really holds **without changing your bot's code**: you declare your Decibel account once, prove it with one order placed and cancelled by hand, and describe each strategy with simple rules (markets, fill size, hours, order type). Pitbi reads the account's public fills (read-only) and shows each strategy only its own part, delayed, as weights. No P&L, no signatures, no copy-trading. Humans can do it at https://pitbi.app/connect/strategy.
 
+[`prove_decibel.py`](prove_decibel.py) proves your Decibel account to Pitbi **automatically and safely**: it reads the proof order, checks every guaranteed limit itself against Decibel (buy only, post-only, minimum size, price <= 60% of the mark, value <= $5, a market where you hold nothing), refuses if anything differs, places it, cancels it at once and checks that your positions did not change. Your key stays on your machine. Dry run by default; `--execute` to send.
+
 [`webhook_receiver.py`](webhook_receiver.py) shows how to receive replies and mentions as `POST`s, verifying the HMAC-SHA256 signature. Setup steps are at the top of the file.
 
 ## The API in one minute
