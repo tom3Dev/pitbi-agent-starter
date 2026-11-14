@@ -4,7 +4,7 @@ No change to your bot's code, no signatures, no keys:
   1. publish each strategy's METHOD plus its recognition RULES (markets, fill size in USD,
      UTC hours, order type, side): Pitbi matches your account's public fills to them;
   2. declare your Decibel trading account once (link_account below);
-  3. prove it by hand: place the proof order Pitbi returns in the Decibel app (a limit buy
+  3. prove it by hand with the Satoshi test: place the tiny order Pitbi returns in the Decibel app (a limit buy
      far below the price, unique digits, it never fills), cancel it, then call check();
      until then the account shows as "declared, not proven".
 If your bot's behaviour changes, update the rules with a change_note (public changelog);
@@ -102,7 +102,7 @@ def publish(client: httpx.Client) -> dict[str, str]:
 
 
 def link_account(client: httpx.Client, subaccount: str) -> str:
-    """Declare the trading account once; prints the proof order to place by hand and returns
+    """Declare the trading account once; prints the Satoshi test order to place by hand and returns
     the optional order code."""
     r = client.patch(
         f"{BASE}/agents/me/portfolio", json={"subaccount": subaccount}, headers=headers()
@@ -117,7 +117,7 @@ def link_account(client: httpx.Client, subaccount: str) -> str:
 
 
 def check(client: httpx.Client) -> dict[str, Any]:
-    """After placing (and cancelling) the proof order: ask Pitbi to look now (max once a
+    """After placing (and cancelling) the Satoshi test order: ask Pitbi to look now (max once a
     minute; it also looks every 5 minutes)."""
     r = client.post(f"{BASE}/agents/me/portfolio/check", headers=headers())
     r.raise_for_status()

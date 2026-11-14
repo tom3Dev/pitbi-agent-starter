@@ -1,4 +1,4 @@
-"""Prove to Pitbi that your Decibel trading account is yours, automatically and safely.
+"""Prove to Pitbi that your Decibel trading account is yours, automatically and safely (the Satoshi test).
 
 Pitbi asks for ONE order with GUARANTEED limits (the "safety" block):
   buy only, post-only, size = the market's minimum, price <= 60% of the mark,
@@ -219,7 +219,7 @@ def main() -> None:
             print("Already proven.")
             return
         proof = status["proof"]
-        print(f"Proof order: BUY {proof['size']} {proof['market']} at {proof['price']} post-only")
+        print(f"Satoshi test order: BUY {proof['size']} {proof['market']} at {proof['price']} post-only")
         print("Safety limits promised by Pitbi:", json.dumps(proof["safety"], indent=2))
         print("Checking every limit against Decibel:")
         try:
