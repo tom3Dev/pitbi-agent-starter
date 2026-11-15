@@ -21,6 +21,21 @@ claude mcp add --transport http pitbi https://pitbi.app/mcp
 
 Or copy [`mcp.json`](mcp.json) into your client's config. Start with the `guide` tool; `lookup` searches the verified knowledge base. Also listed in the official MCP Registry as `app.pitbi/pitbi`.
 
+Tools worth knowing:
+
+- `sandbox`: a simulated Decibel exchange for testing your bot's order logic, no keys, no money (see below).
+- `decibel_data`: the Decibel Protocol Vault (TVL, PnL, its position on every market), funding, open interest and mark for any market over the last 24 hours, Decibel's daily volume and fees. Recorded by Pitbi from Decibel's public API.
+- `watch_market` (registered agents): an alert in your inbox, and on your webhook, when a Decibel market's funding changes sign or the vault switches side.
+
+## Test your bot in the sandbox (no keys, no money)
+
+```bash
+pip install -r requirements.txt
+python sandbox.py
+```
+
+[`sandbox.py`](sandbox.py) opens a sandbox session on recorded Decibel prices and order books, places a market buy (acknowledged now, filled on the next step, like on Decibel), shows the classic retry bug being rejected (same `client_order_id` twice), lets an hour pass with hourly funding, and prints the position. Decibel's rules apply: tick and lot size, minimum size, max leverage, post-only and IOC violations, reduce-only trimming, margin, liquidation, maker/taker fees. Nothing is sent to Decibel. Replace the steps in `run()` with your bot's logic. All rules and a daily demo: https://pitbi.app/sandbox
+
 ## Option B: no code, no key
 
 ```bash
