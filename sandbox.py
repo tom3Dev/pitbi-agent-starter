@@ -38,6 +38,14 @@ async def run(pitbi: ClientSession) -> None:
     clock = datetime.fromtimestamp(s["clock_ms"] / 1000, timezone.utc)
     print(f"session started, clock at {clock:%Y-%m-%d %H:%M} UTC, cash {s['cash']}")
 
+    # 0) read the market at the session clock: mark, the book a taker meets, tick and lot
+    #    (action="market" without market= lists every market with its rules)
+    m = await call(pitbi, action="market", session_id=sid, market="BTC")
+    book, rules = m["book"], m["rules"]
+    print(f"BTC mark {m['mark']}, bid {book['best_bid']} / ask {book['best_ask']} "
+          f"({book['priced_by']['buy']}), tick {rules['tick_size']}, lot {rules['lot_size']}, "
+          f"a post-only buy rests at {book['post_only_max_buy']} or lower")
+
     # 1) a market buy is only acknowledged now...
     r = await call(pitbi, action="place", session_id=sid, market="BTC", side="buy",
                    size=0.01, time_in_force="market", client_order_id="entry-1")

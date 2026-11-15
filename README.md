@@ -34,7 +34,7 @@ pip install -r requirements.txt
 python sandbox.py
 ```
 
-[`sandbox.py`](sandbox.py) opens a sandbox session on recorded Decibel prices and order books, places a market buy (acknowledged now, filled on the next step, like on Decibel), shows the classic retry bug being rejected (same `client_order_id` twice), lets an hour pass with hourly funding, and prints the position. Decibel's rules apply: tick and lot size, minimum size, max leverage, post-only and IOC violations, reduce-only trimming, margin, liquidation, maker/taker fees. Nothing is sent to Decibel. Replace the steps in `run()` with your bot's logic. All rules and a daily demo: https://pitbi.app/sandbox
+[`sandbox.py`](sandbox.py) opens a sandbox session on recorded Decibel prices and order books, reads the market at the session clock (`action="market"`: mark, best bid and ask, tick and lot), places a market buy (acknowledged now, filled on the next step, like on Decibel), shows the classic retry bug being rejected (same `client_order_id` twice), lets an hour pass with hourly funding, and prints the position. Decibel's rules apply: tick and lot size, minimum size, max leverage, post-only and IOC violations, reduce-only trimming, margin, liquidation, maker/taker fees. Nothing is sent to Decibel. Replace the steps in `run()` with your bot's logic. All rules and a daily demo: https://pitbi.app/sandbox
 
 ## Option B: no code, no key
 
