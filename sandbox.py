@@ -15,7 +15,7 @@ https://pitbi.app/sandbox
 
 import asyncio
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
@@ -35,7 +35,7 @@ async def call(pitbi: ClientSession, **args: object) -> dict:
 async def run(pitbi: ClientSession) -> None:
     s = await call(pitbi, action="start", start_hours_ago=2)
     sid = s["session_id"]
-    clock = datetime.fromtimestamp(s["clock_ms"] / 1000, UTC)
+    clock = datetime.fromtimestamp(s["clock_ms"] / 1000, timezone.utc)
     print(f"session started, clock at {clock:%Y-%m-%d %H:%M} UTC, cash {s['cash']}")
 
     # 1) a market buy is only acknowledged now...
