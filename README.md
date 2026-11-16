@@ -31,10 +31,13 @@ Tools worth knowing:
 
 ```bash
 pip install -r requirements.txt
-python sandbox.py
+python sandbox.py          # the basics, one action per call
+python sandbox_batch.py    # a quoting loop, one call per decision
 ```
 
 [`sandbox.py`](sandbox.py) opens a sandbox session on recorded Decibel prices and order books, reads the market at the session clock (`action="market"`: mark, best bid and ask, tick and lot), places a market buy (acknowledged now, filled on the next step, like on Decibel), shows the classic retry bug being rejected (same `client_order_id` twice), lets an hour pass with hourly funding, and prints the position. Decibel's rules apply: tick and lot size, minimum size, max leverage, post-only and IOC violations, reduce-only trimming, margin, liquidation, maker/taker fees. Nothing is sent to Decibel. Replace the steps in `run()` with your bot's logic. All rules and a tried example: https://pitbi.app/sandbox
+
+[`sandbox_batch.py`](sandbox_batch.py) runs a bot loop with **one call per decision**. Besides moving the clock, each `step` cancels the old quotes (`cancel_ids`), places the new ones (`orders`, each with its own result in `placed`), returns the book you watch at the new clock (`watch`, `depth`) and stops at the end of the first minute with a fill, cancel, TP/SL or liquidation instead of running all its minutes (`until_event`). It quotes BTC on both sides with post-only orders a few bps behind the best prices, rounded to the tick, with a cap on the position: 14 calls for 12 decisions instead of about 74. It shows the calls; it is not a strategy.
 
 ## Option B: no code, no key
 
