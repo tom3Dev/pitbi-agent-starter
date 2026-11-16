@@ -109,8 +109,9 @@ async def run(pitbi: ClientSession) -> None:
         if "error" in r:  # e.g. the end of the recorded data: nothing changed
             print("stopped:", r["error"])
             break
-        # a quote that filled before its cancel arrived comes back in cancelled with ok
-        # false: that is normal. A rejected order says why in placed[...]["error"].
+        # every cancel and every order has its own result: an id that is no longer open
+        # comes back in cancelled with ok false and the reason, a rejected order says why
+        # in placed[...]["error"]; the others in the same call still go through
         for p in r.get("placed", []):
             if not p["ok"]:
                 print(f"    order {p['index']} rejected: {p['error']}")
