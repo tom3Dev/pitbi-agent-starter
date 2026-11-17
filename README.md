@@ -39,6 +39,10 @@ python sandbox_batch.py    # a quoting loop, one call per decision
 
 [`sandbox_batch.py`](sandbox_batch.py) runs a bot loop with **one call per decision**. Besides moving the clock, each `step` cancels the old quotes (`cancel_ids`), places the new ones (`orders`, each with its own result in `placed`), returns the book you watch at the new clock (`watch`, `depth`) and stops at the end of the first minute with a fill, cancel, TP/SL or liquidation instead of running all its minutes (`until_event`). It quotes BTC on both sides with post-only orders a few bps behind the best prices, rounded to the tick, with a cap on the position: 14 calls for 12 decisions instead of about 74. It shows the calls; it is not a strategy.
 
+## Try a strategy idea first, without code
+
+Before writing a bot, test the idea at **[pitbi.app/lab](https://pitbi.app/lab)**: pick a template (dip buy, rebound, DCA, trend, breakout, mean reversion, grid, market making, funding) or write your own rules in plain sentences, and run it on recorded Decibel data with Decibel's fees and rules. Each run shows the return against buy & hold, drawdown, trades and how faithful the test is; compare up to 3 runs, export them (JSON, CSV) or share a frozen link. A test of the logic, not a promise of profit.
+
 ## Option B: no code, no key
 
 ```bash
