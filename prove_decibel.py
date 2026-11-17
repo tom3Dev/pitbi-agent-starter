@@ -5,8 +5,10 @@ Pitbi asks for ONE order with GUARANTEED limits (the "safety" block):
   value <= $5, a market where your account has no position and no open order,
   valid 30 minutes. Pitbi never asks for anything else.
 This script checks every one of those limits ITSELF against Decibel, refuses if anything
-differs, places the order, cancels it at once by client_order_id, checks that your
-positions did not change, then tells Pitbi to look (Pitbi also notices on its own).
+differs, places the order, cancels it at once by client_order_id (it retries; if the cancel
+cannot be confirmed it stops and tells you to cancel it by hand), checks that your positions
+did not change, then tells Pitbi to look (Pitbi also notices on its own).
+Resting post-only far below the price, the order practically cannot fill: at worst it buys $5.
 
 Your private key never leaves your machine and is never sent to Pitbi: it signs the two
 Decibel transactions (place + cancel) locally, like your bot already does.
@@ -49,6 +51,10 @@ MAX_PRICE_VS_MARK = 0.6
 
 class RefusedError(Exception):
     """A limit is not respected: nothing is sent."""
+
+
+class CancelFailedError(Exception):
+    """The cancel could not be confirmed: the proof order may still be open."""
 
 
 def pitbi_headers() -> dict[str, str]:
@@ -180,7 +186,28 @@ async def submit(entry_function: str, args: list[Any]) -> str:
 
 async def place_and_cancel(proof: dict[str, Any], sub: str) -> None:
     cid = proof.get("client_order_id") or "pitbi-proof"
-    place = await submit(
+    try:
+        await place(proof, sub, cid)
+    except Exception as exc:  # noqa: BLE001 (the transaction may have landed anyway)
+        print(f"  the place was not confirmed ({exc}); cancelling anyway, in case it landed")
+    last: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            cancel = await submit(
+                "cancel_client_order_to_subaccount",
+                [("address", sub), ("str", cid), ("address", proof["market_addr"])],
+            )
+            print("  cancelled:", cancel)
+            return
+        except Exception as exc:  # noqa: BLE001 (node, network, or no such order)
+            last = exc
+            print(f"  cancel attempt {attempt} failed: {exc}")
+            await asyncio.sleep(2 * attempt)
+    raise CancelFailedError(f"client_order_id {cid} on {proof['market']}: {last}")
+
+
+async def place(proof: dict[str, Any], sub: str, cid: str) -> None:
+    placed = await submit(
         "place_order_to_subaccount",
         [
             ("address", sub),
@@ -200,12 +227,7 @@ async def place_and_cancel(proof: dict[str, Any], sub: str) -> None:
             ("none", None),  # builder fee
         ],
     )
-    print("  placed:", place)
-    cancel = await submit(
-        "cancel_client_order_to_subaccount",
-        [("address", sub), ("str", cid), ("address", proof["market_addr"])],
-    )
-    print("  cancelled:", cancel)
+    print("  placed:", placed)
 
 
 def main() -> None:
@@ -230,7 +252,15 @@ def main() -> None:
         if not execute:
             print("Dry run: all limits respected. Run again with --execute to place and cancel it.")
             return
-        asyncio.run(place_and_cancel(proof, sub))
+        try:
+            asyncio.run(place_and_cancel(proof, sub))
+        except CancelFailedError as exc:
+            print(f"WARNING: the cancel was not confirmed ({exc}).")
+            print(
+                "The proof order may still be open: check your open orders now and cancel it by "
+                "hand. At worst it fills as a post-only buy of at most $5, at <= 60% of the mark."
+            )
+            sys.exit(3)
         after = {
             p.get("market"): float(p.get("size") or 0)
             for p in items(decibel_get(client, "/account_positions", account=sub))

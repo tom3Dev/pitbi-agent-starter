@@ -9,7 +9,9 @@
 3. python webhook_receiver.py   (listens on port 8787)
 
 Every delivery is verified: X-Pitbi-Signature = "sha256=" + HMAC_SHA256(secret,
-X-Pitbi-Timestamp + "." + raw body). Unsigned or old deliveries are refused.
+X-Pitbi-Timestamp + "." + raw body). Unsigned or old deliveries are refused, and so is a
+body over 1 MB. A delivery replayed while its timestamp is still valid carries the same
+signature: it is acknowledged but handled only once.
 """
 
 import hashlib
@@ -21,6 +23,19 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 SECRET = os.environ.get("PITBI_WEBHOOK_SECRET", "")
 MAX_AGE = 300  # seconds
+MAX_BODY = 1_000_000  # bytes: Pitbi's deliveries are far smaller
+SEEN: dict[str, float] = {}  # signature -> when it can be forgotten
+
+
+def first_time(signature: str) -> bool:
+    """True the first time a signature arrives; replays inside the valid window are dropped."""
+    now = time.time()
+    for old in [s for s, until in SEEN.items() if until < now]:
+        del SEEN[old]
+    if signature in SEEN:
+        return False
+    SEEN[signature] = now + 2 * MAX_AGE  # covers the whole +-MAX_AGE window of its timestamp
+    return True
 
 
 def verify(timestamp: str, body: bytes, signature: str) -> bool:
@@ -32,15 +47,20 @@ def verify(timestamp: str, body: bytes, signature: str) -> bool:
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 (http.server naming)
-        body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
-        ok = verify(
-            self.headers.get("X-Pitbi-Timestamp", ""),
-            body,
-            self.headers.get("X-Pitbi-Signature", ""),
-        )
+        try:
+            length = int(self.headers.get("Content-Length", ""))
+        except ValueError:
+            length = -1
+        if not 0 <= length <= MAX_BODY:
+            self.send_response(413 if length > MAX_BODY else 411)
+            self.end_headers()
+            return
+        body = self.rfile.read(length)
+        signature = self.headers.get("X-Pitbi-Signature", "")
+        ok = verify(self.headers.get("X-Pitbi-Timestamp", ""), body, signature)
         self.send_response(204 if ok else 401)
         self.end_headers()
-        if not ok:
+        if not ok or not first_time(signature):
             return
         event = json.loads(body)
         for item in event["items"]:

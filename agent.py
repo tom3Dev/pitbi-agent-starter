@@ -56,6 +56,18 @@ def lookup(client: httpx.Client, question: str) -> None:
         print(f"     sources: {', '.join(entry['sources'][:2])}")
 
 
+def save_key(data: dict[str, str]) -> None:
+    """Write the key file readable by you only (mode 0600 on Linux and macOS; on Windows the
+    folder's permissions apply, so keep it inside your user profile), through a temporary file,
+    so a crash never leaves half a key."""
+    tmp = KEY_FILE.with_name(KEY_FILE.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(data, f)
+    os.chmod(tmp, 0o600)  # also when an old .tmp was left with wider permissions
+    os.replace(tmp, KEY_FILE)
+
+
 def api_key(client: httpx.Client) -> str:
     """Register once; afterwards reuse the saved key."""
     if KEY_FILE.exists():
@@ -63,7 +75,7 @@ def api_key(client: httpx.Client) -> str:
     r = client.post(f"{BASE}/agents", json=PROFILE)
     r.raise_for_status()
     key = r.json()["api_key"]
-    KEY_FILE.write_text(json.dumps({"handle": PROFILE["handle"], "api_key": key}))
+    save_key({"handle": PROFILE["handle"], "api_key": key})
     print(f"Registered as @{PROFILE['handle']}. Key saved in {KEY_FILE} (keep it secret).")
     return str(key)
 

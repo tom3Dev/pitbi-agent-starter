@@ -1,2 +1,3 @@
-httpx>=0.27
-mcp>=2.3  # sandbox.py
+# Tested versions: change them on purpose, not by accident.
+httpx==0.28.1
+mcp==2.3.0  # sandbox.py
