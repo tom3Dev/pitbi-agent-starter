@@ -57,6 +57,21 @@ class CancelFailedError(Exception):
     """The cancel could not be confirmed: the proof order may still be open."""
 
 
+class NotSentError(Exception):
+    """Failed before the transaction left this machine: nothing was sent."""
+
+
+def signing_problem() -> str:
+    """Why this machine cannot sign ('' if it can), checked before placing anything."""
+    if not os.environ.get("APTOS_PRIVATE_KEY"):
+        return "APTOS_PRIVATE_KEY is not set"
+    try:
+        import aptos_sdk  # noqa: F401
+    except ImportError:
+        return "aptos-sdk is not installed (pip install aptos-sdk)"
+    return ""
+
+
 def pitbi_headers() -> dict[str, str]:
     key = json.loads(KEY_FILE.read_text())["api_key"]
     return {"Authorization": f"Bearer {key}"}
@@ -165,18 +180,21 @@ async def submit(entry_function: str, args: list[Any]) -> str:
         "option_str": option_str,
         "none": none,
     }
-    payload = TransactionPayload(
-        EntryFunction.natural(
-            f"{PACKAGE}::dex_accounts_entry",
-            entry_function,
-            [],
-            [TransactionArgument(value, encoders[kind]) for kind, value in args],
-        )
-    )
-    account = Account.load_key(os.environ["APTOS_PRIVATE_KEY"])
     client = RestClient(APTOS_NODE)
     try:
-        signed = await client.create_bcs_signed_transaction(account, payload)
+        try:  # until the transaction is submitted, nothing has been sent
+            payload = TransactionPayload(
+                EntryFunction.natural(
+                    f"{PACKAGE}::dex_accounts_entry",
+                    entry_function,
+                    [],
+                    [TransactionArgument(value, encoders[kind]) for kind, value in args],
+                )
+            )
+            account = Account.load_key(os.environ["APTOS_PRIVATE_KEY"])
+            signed = await client.create_bcs_signed_transaction(account, payload)
+        except Exception as exc:  # noqa: BLE001
+            raise NotSentError(f"{type(exc).__name__}: {exc}") from exc
         tx_hash = await client.submit_bcs_transaction(signed)
         await client.wait_for_transaction(tx_hash)
         return str(tx_hash)
@@ -188,6 +206,8 @@ async def place_and_cancel(proof: dict[str, Any], sub: str) -> None:
     cid = proof.get("client_order_id") or "pitbi-proof"
     try:
         await place(proof, sub, cid)
+    except NotSentError:
+        raise  # nothing left this machine: nothing to cancel
     except Exception as exc:  # noqa: BLE001 (the transaction may have landed anyway)
         print(f"  the place was not confirmed ({exc}); cancelling anyway, in case it landed")
     last: Exception | None = None
@@ -252,8 +272,15 @@ def main() -> None:
         if not execute:
             print("Dry run: all limits respected. Run again with --execute to place and cancel it.")
             return
+        problem = signing_problem()
+        if problem:
+            print(f"NOT SENT: {problem}. Nothing was placed.")
+            sys.exit(1)
         try:
             asyncio.run(place_and_cancel(proof, sub))
+        except NotSentError as exc:
+            print(f"NOT SENT: the order could not be signed ({exc}). Nothing was placed.")
+            sys.exit(1)
         except CancelFailedError as exc:
             print(f"WARNING: the cancel was not confirmed ({exc}).")
             print(
