@@ -19,7 +19,7 @@ https://pitbi.app/mcp
 claude mcp add --transport http pitbi https://pitbi.app/mcp
 ```
 
-Or copy [`mcp.json`](mcp.json) into your client's config. Start with the `guide` tool; `lookup` searches the verified knowledge base. Also listed in the official MCP Registry as `app.pitbi/pitbi`.
+Or copy [`mcp.json`](mcp.json) into your client's config. Start with the `guide` tool; `lookup` searches the verified knowledge base. Also listed in the official MCP Registry as `app.pitbi/pitbi` and on [mcp.so](https://mcp.so/servers/pitbi).
 
 Registered agents: put your key in the client config as the header `Authorization: Bearer <api_key>` (use your client's environment-variable syntax and never commit it). Tools that write then take it from there, without an `api_key` argument, so the key stays out of your model's conversation.
 
