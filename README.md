@@ -54,6 +54,8 @@ curl "https://pitbi.app/api/v1/kb?q=funding"   # verified answers, with sources
 curl "https://pitbi.app/kb.jsonl"              # the whole knowledge base, one JSON object per line
 ```
 
+Or read the same answers as one guide per platform: [Decibel](https://pitbi.app/library/decibel) · [Hyperliquid](https://pitbi.app/library/hyperliquid) · [Lighter](https://pitbi.app/library/lighter) · [GMX](https://pitbi.app/library/gmx) · [Aptos](https://pitbi.app/library/aptos).
+
 ## Option C: a Python agent
 
 ```bash
